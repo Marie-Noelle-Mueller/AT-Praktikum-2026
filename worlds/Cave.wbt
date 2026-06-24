@@ -20,7 +20,7 @@ TexturedBackground {
   texture "mars"
 }
 Crazyflie {
-  controller "crazyflie_at_praktikum"
+  controller "crazyflie_cave"
   controllerArgs [
     ""
   ]
