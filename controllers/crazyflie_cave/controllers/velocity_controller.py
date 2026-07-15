@@ -21,7 +21,7 @@ class VelocityController:
         self.prev_error_x = 0.0
         self.prev_error_y = 0.0
 
-        # Vertical
+        # Vertical - PID Controller
         self.F_hover = F_hover
         self.Kp_z = Kp_z
         self.Ki_z = Ki_z
@@ -30,6 +30,16 @@ class VelocityController:
         self.integral_z = 0.0
         self.deriv_z = 0.0
         self.tau_d = tau_d   # derivative filter time constant
+
+        # States for general-form difference equation
+        # e_z_1 = e[k-1], e_z_2 = e[k-2]
+        self.e_z_1 = 0.0
+        self.e_z_2 = 0.0
+
+        # u_z_1 = u[k-1], u_z_2 = u[k-2]
+        # u is the delta controller output added to baseline thrust for the total control signal
+        self.u_z_1 = 0.0
+        self.u_z_2 = 0.0
 
         self.dt = dt
 
@@ -69,10 +79,71 @@ class VelocityController:
         self.prev_error_y = error_y
 
         # --- Aufgabe 2a: Vertical velocity controller  ---
-        # Implement a PID or PD controller that outputs thrust_command.        
         
-        thrust_command = 0.001  # placeholder - replace with your controller output
+        # Comparison:
+        #
+        # thrust_command_pid    = original PID implementation
+        # thrust_command        = equivalent general-form difference equation
 
+        # ============================================================
+        # Reference PID implementation (used only for comparison)
 
+        error_z = vz_ref - vz
+
+        self.integral_z += error_z * self.dt
+        self.integral_z = np.clip(self.integral_z, -2.0, 2.0)
+
+        deriv_raw = (error_z - self.prev_error_z) / self.dt
+
+        alpha = self.tau_d / (self.tau_d + self.dt)
+
+        self.deriv_z = (
+            alpha * self.deriv_z
+            + (1.0 - alpha) * deriv_raw
+        )
+
+        deriv_z = self.deriv_z
+
+        thrust_command_pid = (
+            self.F_hover
+            + self.Kp_z * error_z
+            + self.Ki_z * self.integral_z
+            + self.Kd_z * deriv_z
+        )
+
+        self.prev_error_z = error_z
+
+        # -----------------------------------------------------
+        # Aufgabe 2a: Implement your controller by replacing the coefficients with those obtained after by discretization after z-transform.
+        #
+        # Difference equation:
+        #
+        # u[k] = b0 e[k] + b1 e[k-1] + b2 e[k-2] - a1 u[k-1] - a2 u[k-2]
+        #
+
+        # Coefficients (0 as Placeholders)
+        b0 = 0
+        b1 = 0
+        b2 = 0
+        a1 = 0
+        a2 = 0
+
+        # Difference equation
+        u_z_k = 0 # Placeholder
+        
+        # Control signal - thrust command
+        thrust_command = 0.001 # Placeholder
+
+        # Update difference-equation states
+        # self.e_z_2 = ...
+        # ... Placeholders ...
+
+        # Compare PID implementation (thrust_command_pid) with equivalent difference equation (thrust_command).
+        print(f"Difference: {thrust_command_pid - thrust_command:.3e}")
+
+        # If you want to actually use the thrust_command_pid output,
+        # uncomment this line:
+        #
+        #thrust_command = thrust_command_pid
 
         return desired_roll, desired_pitch, thrust_command

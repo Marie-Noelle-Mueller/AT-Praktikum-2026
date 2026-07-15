@@ -44,8 +44,11 @@ def main():
     # Initialize motors
     motors = initialize_motors(robot)
 
-    ## Trajectory Tracking
+    # Experiment mode selection
+    MODE = "STEP_RESPONSE"   # Options: "TRAJECTORY" or "STEP_RESPONSE"
 
+    ## Trajectory Tracking
+    
     # Reference Trajectory - array of setpoints
     trajectory = Trajectory([
         Setpoint(x=0.0, y=0.0, z=0.6, yaw= 0),
@@ -61,6 +64,7 @@ def main():
     ])
 
     tracker = TrajectoryTracker(trajectory)
+        
     ###########
 
     # Main loop:
@@ -72,18 +76,53 @@ def main():
         # Read the sensors:
         state = sensors.read()
 
-        # Trajectory Tracker provides the setpoints for the controller to follow
-        reference = tracker.update(state, sim_time)
+        # Step response finished flag
+        step_response_finished = False
+        
+        if MODE == "TRAJECTORY":
+            # Trajectory Tracker provides the setpoints for the controller to follow
+            reference = tracker.update(state, sim_time)
+
+        else:
+            reference = Setpoint(
+                    x=0.0,
+                    y=0.0,
+                    z=1.0, # Step response height of 1 meter
+                    yaw=0.0
+                ).to_dict()
+            
+
+        # Store step-response data for standardized 30 s plot
+        if MODE == "STEP_RESPONSE":
+            logger.record_step_response(state, reference, sim_time, max_log_time=30.0)
+
 
         # Flight Controller - CascadedController
         motor_velocities = flight_controller.compute_motor_commands(state, reference, debug=DEBUG)
 
-        # Stop the motors once landed 
-        if tracker.trajectory_completed and state["position"][2] < 0.05:
-            motor_velocities = [0.0, 0.0, 0.0, 0.0]
+        # Stop the motors once landed / experiment finished
+        if MODE == "TRAJECTORY":
+
+            if tracker.trajectory_completed and state["position"][2] < 0.05:
+                motor_velocities = [0.0, 0.0, 0.0, 0.0]
+
+        elif MODE == "STEP_RESPONSE":
+
+            if sim_time > 30.1:
+                motor_velocities = [0.0, 0.0, 0.0, 0.0]
+                step_response_finished = True
 
         # Set motor velocities for each propeller
         set_motor_velocities(motors, motor_velocities)
+
+        # Finish standardized step-response experiment
+        if MODE == "STEP_RESPONSE" and step_response_finished:
+            logger.finalize_step_response(
+                filename="step_response_30s.png",
+                target=1.0,
+                tolerance=0.05
+            )
+            break
 
         # End of main loop
 
